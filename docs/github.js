@@ -54,13 +54,23 @@ function base64ToUtf8(base64) {
   return new TextDecoder().decode(bytes);
 }
 
-async function putFile(path, base64Content, message) {
+// Base URL of the site (origin + folder path), independent of which page
+// is currently loaded. Strips whatever the last path segment is — the
+// current filename — rather than hardcoding a specific one, so this can't
+// break if a page is renamed or a link is built from the wrong page.
+function siteBase() {
+  return `${location.origin}${location.pathname.replace(/[^/]*$/, "")}`;
+}
+
+async function putFile(path, base64Content, message, sha) {
+  const body = { message, content: base64Content };
+  if (sha) body.sha = sha;
   const res = await fetch(
     `${GITHUB_API}/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${path}`,
     {
       method: "PUT",
       headers: ghHeaders({ "Content-Type": "application/json" }),
-      body: JSON.stringify({ message, content: base64Content }),
+      body: JSON.stringify(body),
     }
   );
   if (!res.ok) throw new Error(await res.text());
@@ -198,6 +208,26 @@ async function listEvents() {
       })
     )
   ).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+// Flips an event's visibility. Returns the new value ("public"/"private").
+async function setEventVisibility(eventId, visibility) {
+  const res = await fetch(
+    `${GITHUB_API}/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/media/${eventId}/_meta.json`,
+    { headers: ghHeaders() }
+  );
+  if (!res.ok) throw new Error("Event not found");
+  const metaFile = await res.json();
+  const meta = JSON.parse(base64ToUtf8(metaFile.content));
+  meta.visibility = visibility === "private" ? "private" : "public";
+
+  await putFile(
+    `media/${eventId}/_meta.json`,
+    utf8ToBase64(JSON.stringify(meta, null, 2)),
+    `Set ${eventId} to ${meta.visibility}`,
+    metaFile.sha
+  );
+  return meta.visibility;
 }
 
 // Deletes a single photo from an event by filename (and its git blob sha).

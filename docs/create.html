@@ -8,7 +8,6 @@
 </head>
 <body>
 <div class="wrap">
-  <p class="frame-count">frame 001</p>
   <h1>Start a new event</h1>
 
   <div class="card">
@@ -26,11 +25,11 @@
       <input type="text" id="event-categories" placeholder="bbq, class, summer">
     </div>
     <div class="field">
-      <label>Visibility</label>
-      <div class="visibility-toggle">
-        <button type="button" class="vis-option selected" id="vis-public" data-value="public">Public</button>
-        <button type="button" class="vis-option" id="vis-private" data-value="private">Private</button>
-      </div>
+      <label for="event-visibility">Visibility</label>
+      <select id="event-visibility">
+        <option value="public" selected>Public</option>
+        <option value="private">Private</option>
+      </select>
       <p class="hint">Public events show up on the homepage. Private events are only reachable by direct link.</p>
     </div>
     <div class="field">
@@ -56,24 +55,12 @@ const linkText = document.getElementById("link-text");
 const copyBtn = document.getElementById("copy-btn");
 const slugInput = document.getElementById("event-slug");
 const slugPreview = document.getElementById("slug-preview");
-const visButtons = document.querySelectorAll(".vis-option");
-let visibility = "public";
-
-visButtons.forEach((btn) => {
-  btn.addEventListener("click", () => {
-    visibility = btn.dataset.value;
-    visButtons.forEach((b) => b.classList.toggle("selected", b === btn));
-  });
-});
-
-function currentBase() {
-  return `${location.origin}${location.pathname.replace(/create\.html$/, "")}`;
-}
+const visibilitySelect = document.getElementById("event-visibility");
 
 slugInput.addEventListener("input", () => {
   const raw = slugInput.value.trim();
   slugPreview.textContent = raw
-    ? `Link: ${currentBase()}event.html?id=${raw.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")}`
+    ? `Link: ${siteBase()}event.html?id=${raw.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")}`
     : "Leave blank for a random link.";
 });
 
@@ -99,7 +86,7 @@ createBtn.addEventListener("click", async () => {
   statusEl.textContent = "Creating event…";
 
   try {
-    const event = await createEvent(name, customSlug, categories, visibility);
+    const event = await createEvent(name, customSlug, categories, visibilitySelect.value);
 
     if (files.length) {
       let done = 0;
@@ -110,7 +97,7 @@ createBtn.addEventListener("click", async () => {
       }
     }
 
-    lastEventUrl = `${currentBase()}event.html?id=${event.id}`;
+    lastEventUrl = `${siteBase()}event.html?id=${event.id}`;
     statusEl.textContent = "Done.";
     linkBox.style.display = "flex";
     linkText.innerHTML = `<a href="${lastEventUrl}">${lastEventUrl}</a>`;
