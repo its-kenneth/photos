@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>All events — contact sheet</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+  <div class="nav-links">
+    <a class="back" href="index.html">&larr; new event</a>
+  </div>
+  <p class="frame-count" id="frame-count">events</p>
+  <h1>All events</h1>
+
+  <div class="event-rows" id="rows"></div>
+  <p class="empty" id="empty" style="display:none;">No events yet — create one to get started.</p>
+  <p class="status" id="status"></p>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="config.js"></script>
+<script src="github.js"></script>
+<script>
+const rowsEl = document.getElementById("rows");
+const emptyEl = document.getElementById("empty");
+const statusEl = document.getElementById("status");
+const frameCountEl = document.getElementById("frame-count");
+
+function eventUrl(id) {
+  return `${location.origin}${location.pathname.replace(/events\.html$/, "")}event.html?id=${id}`;
+}
+
+function renderRow(event) {
+  const row = document.createElement("div");
+  row.className = "event-row";
+  row.innerHTML = `
+    <div class="info">
+      <a href="event.html?id=${event.id}">${event.name}</a>
+      <span class="slug">${event.id}</span>
+    </div>
+    <div class="actions">
+      <button class="teal small" data-action="share">Share link</button>
+      <button class="secondary small" data-action="download">Download all</button>
+      <button class="danger small" data-action="delete">Delete event</button>
+    </div>
+  `;
+
+  row.querySelector('[data-action="share"]').addEventListener("click", async (e) => {
+    const ok = await copyToClipboard(eventUrl(event.id));
+    e.target.textContent = ok ? "Copied!" : "Couldn't copy";
+    setTimeout(() => (e.target.textContent = "Share link"), 1500);
+  });
+
+  row.querySelector('[data-action="download"]').addEventListener("click", async (e) => {
+    const btn = e.target;
+    btn.disabled = true;
+    btn.textContent = "Loading…";
+    try {
+      const full = await getEvent(event.id);
+      if (!full.assets.length) {
+        btn.textContent = "No photos";
+        setTimeout(() => (btn.textContent = "Download all"), 1500);
+        return;
+      }
+      btn.textContent = full.assets.length > 1 ? "Zipping…" : "Downloading…";
+      await zipAndDownloadAssets(full.assets, event.id);
+      btn.textContent = "Download all";
+    } catch (err) {
+      btn.textContent = "Failed";
+      statusEl.textContent = err.message;
+      statusEl.className = "status error";
+      setTimeout(() => (btn.textContent = "Download all"), 1500);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  row.querySelector('[data-action="delete"]').addEventListener("click", async (e) => {
+    if (!confirm(`Delete "${event.name}" and all its photos? This can't be undone.`)) return;
+    const btn = e.target;
+    btn.disabled = true;
+    btn.textContent = "Deleting…";
+    try {
+      await deleteEvent(event.id);
+      row.remove();
+      if (!rowsEl.children.length) emptyEl.style.display = "block";
+    } catch (err) {
+      btn.textContent = "Failed";
+      btn.disabled = false;
+      statusEl.textContent = err.message;
+      statusEl.className = "status error";
+    }
+  });
+
+  return row;
+}
+
+async function loadEvents() {
+  statusEl.textContent = "Loading events…";
+  try {
+    const events = await listEvents();
+    frameCountEl.textContent = `${events.length} event${events.length === 1 ? "" : "s"}`;
+    statusEl.textContent = "";
+    emptyEl.style.display = events.length ? "none" : "block";
+    events.forEach((event) => rowsEl.appendChild(renderRow(event)));
+  } catch (err) {
+    statusEl.textContent = `Couldn't load events: ${err.message}`;
+    statusEl.className = "status error";
+  }
+}
+
+loadEvents();
+</script>
+</body>
+</html>

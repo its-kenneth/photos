@@ -67,9 +67,29 @@ async function putFile(path, base64Content, message) {
   return res.json();
 }
 
-// Creates an event (a folder at media/{id}/ with a _meta.json). Returns { id, name }.
-async function createEvent(name) {
-  const id = `${slugify(name)}-${makeEventId()}`;
+async function slugExists(slug) {
+  const res = await fetch(
+    `${GITHUB_API}/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/media/${slug}/_meta.json`,
+    { headers: ghHeaders() }
+  );
+  return res.ok;
+}
+
+// Creates an event. If customSlug is given, uses it as the id (after
+// slugifying) instead of generating a random one — throws if it's taken.
+// Returns { id, name }.
+async function createEvent(name, customSlug) {
+  let id;
+  if (customSlug && customSlug.trim()) {
+    id = slugify(customSlug);
+    if (!id) throw new Error("Custom link must contain letters or numbers.");
+    if (await slugExists(id)) {
+      throw new Error(`"${id}" is already taken — try a different link.`);
+    }
+  } else {
+    id = `${slugify(name)}-${makeEventId()}`;
+  }
+
   const meta = { name: name.trim(), createdAt: new Date().toISOString() };
   await putFile(
     `media/${id}/_meta.json`,
@@ -124,5 +144,103 @@ async function uploadPhoto(eventId, file) {
     return { name: file.name, url: result.content?.download_url };
   } catch (err) {
     return { name: file.name, error: err.message };
+  }
+}
+
+// Lists every event (every folder under media/). Returns [{ id, name }],
+// sorted by name. Returns [] if no events exist yet.
+async function listEvents() {
+  const res = await fetch(
+    `${GITHUB_API}/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/media`,
+    { headers: ghHeaders() }
+  );
+  if (!res.ok) {
+    if (res.status === 404) return [];
+    throw new Error(await res.text());
+  }
+  const items = await res.json();
+  const dirs = items.filter((i) => i.type === "dir");
+
+  return (
+    await Promise.all(
+      dirs.map(async (dir) => {
+        try {
+          const metaRes = await fetch(
+            `${GITHUB_API}/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/media/${dir.name}/_meta.json`,
+            { headers: ghHeaders() }
+          );
+          if (metaRes.ok) {
+            const metaFile = await metaRes.json();
+            const meta = JSON.parse(base64ToUtf8(metaFile.content));
+            return { id: dir.name, name: meta.name || dir.name };
+          }
+        } catch (_) {
+          /* fall back below */
+        }
+        return { id: dir.name, name: dir.name };
+      })
+    )
+  ).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+// Deletes an event: every file under media/{eventId}/, one commit each
+// (sequential, since concurrent deletes on the same repo can conflict).
+async function deleteEvent(eventId) {
+  const res = await fetch(
+    `${GITHUB_API}/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/media/${eventId}`,
+    { headers: ghHeaders() }
+  );
+  if (!res.ok) throw new Error("Event not found");
+  const files = await res.json();
+
+  for (const file of files) {
+    const delRes = await fetch(
+      `${GITHUB_API}/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${file.path}`,
+      {
+        method: "DELETE",
+        headers: ghHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({ message: `Delete ${file.path}`, sha: file.sha }),
+      }
+    );
+    if (!delRes.ok) throw new Error(await delRes.text());
+  }
+}
+
+// Downloads a set of assets: a direct link for one file, a client-side
+// zip (via JSZip, which must be loaded on the page) for more than one.
+async function zipAndDownloadAssets(assets, downloadName) {
+  if (!assets.length) return;
+
+  if (assets.length === 1) {
+    const a = document.createElement("a");
+    a.href = assets[0].browser_download_url;
+    a.download = assets[0].name;
+    a.click();
+    return;
+  }
+
+  const zip = new JSZip();
+  for (const asset of assets) {
+    const res = await fetch(asset.browser_download_url);
+    const blob = await res.blob();
+    zip.file(asset.name, blob);
+  }
+  const content = await zip.generateAsync({ type: "blob" });
+  const url = URL.createObjectURL(content);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${downloadName}.zip`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// Copies text to the clipboard. Returns true/false rather than throwing,
+// since this is always used to drive a small UI hint, never critical flow.
+async function copyToClipboard(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch (_) {
+    return false;
   }
 }

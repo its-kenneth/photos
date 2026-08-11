@@ -8,6 +8,9 @@
 </head>
 <body>
 <div class="wrap">
+  <div class="nav-links">
+    <a class="back" href="events.html">&larr; all events</a>
+  </div>
   <p class="frame-count">frame 001</p>
   <h1>Start a new event</h1>
 
@@ -17,12 +20,20 @@
       <input type="text" id="event-name" placeholder="Sarah &amp; Tom's wedding">
     </div>
     <div class="field">
+      <label for="event-slug">Custom link (optional)</label>
+      <input type="text" id="event-slug" placeholder="e.g. sarah-tom-wedding">
+      <p class="hint" id="slug-preview">Leave blank for a random link.</p>
+    </div>
+    <div class="field">
       <label for="event-files">Photos (optional — you can add more later)</label>
       <input type="file" id="event-files" multiple accept="image/*">
     </div>
     <button id="create-btn">Create event</button>
     <p class="status" id="status"></p>
-    <div class="link-box" id="link-box" style="display:none;"></div>
+    <div class="link-box" id="link-box" style="display:none;">
+      <span class="link-text" id="link-text"></span>
+      <button class="teal small" id="copy-btn">Copy link</button>
+    </div>
   </div>
 </div>
 
@@ -32,9 +43,27 @@
 const createBtn = document.getElementById("create-btn");
 const statusEl = document.getElementById("status");
 const linkBox = document.getElementById("link-box");
+const linkText = document.getElementById("link-text");
+const copyBtn = document.getElementById("copy-btn");
+const slugInput = document.getElementById("event-slug");
+const slugPreview = document.getElementById("slug-preview");
+
+function currentEventsBase() {
+  return `${location.origin}${location.pathname.replace(/index\.html$/, "")}`;
+}
+
+slugInput.addEventListener("input", () => {
+  const raw = slugInput.value.trim();
+  slugPreview.textContent = raw
+    ? `Link: ${currentEventsBase()}event.html?id=${raw.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")}`
+    : "Leave blank for a random link.";
+});
+
+let lastEventUrl = "";
 
 createBtn.addEventListener("click", async () => {
   const name = document.getElementById("event-name").value.trim();
+  const customSlug = slugInput.value.trim();
   const files = document.getElementById("event-files").files;
 
   if (!name) {
@@ -48,7 +77,7 @@ createBtn.addEventListener("click", async () => {
   statusEl.textContent = "Creating event…";
 
   try {
-    const event = await createEvent(name);
+    const event = await createEvent(name, customSlug);
 
     if (files.length) {
       let done = 0;
@@ -59,16 +88,22 @@ createBtn.addEventListener("click", async () => {
       }
     }
 
-    const eventUrl = `${location.origin}${location.pathname.replace(/index\.html$/, "")}event.html?id=${event.id}`;
+    lastEventUrl = `${currentEventsBase()}event.html?id=${event.id}`;
     statusEl.textContent = "Done.";
-    linkBox.style.display = "block";
-    linkBox.innerHTML = `Shareable link: <a href="${eventUrl}">${eventUrl}</a>`;
+    linkBox.style.display = "flex";
+    linkText.innerHTML = `<a href="${lastEventUrl}">${lastEventUrl}</a>`;
   } catch (err) {
     statusEl.textContent = `Something went wrong: ${err.message}`;
     statusEl.className = "status error";
   } finally {
     createBtn.disabled = false;
   }
+});
+
+copyBtn.addEventListener("click", async () => {
+  const ok = await copyToClipboard(lastEventUrl);
+  copyBtn.textContent = ok ? "Copied!" : "Couldn't copy";
+  setTimeout(() => (copyBtn.textContent = "Copy link"), 1500);
 });
 </script>
 </body>

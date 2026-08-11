@@ -8,9 +8,15 @@
 </head>
 <body>
 <div class="wrap">
-  <a class="back" href="index.html">&larr; new event</a>
+  <div class="nav-links">
+    <a class="back" href="index.html">&larr; new event</a>
+    <a class="back" href="events.html">all events</a>
+  </div>
   <p class="frame-count" id="frame-count">frame 000</p>
-  <h1 id="event-title">Loading…</h1>
+  <div class="title-row">
+    <h1 id="event-title">Loading…</h1>
+    <button class="teal small" id="share-btn">Share link</button>
+  </div>
 
   <div class="toolbar">
     <button class="secondary" id="select-all-btn">Select all</button>
@@ -140,33 +146,14 @@ downloadBtn.addEventListener("click", async () => {
   const picked = assets.filter((a) => selected.has(a.id));
   if (!picked.length) return;
 
-  if (picked.length === 1) {
-    // single file: direct download, no zip needed
-    const a = document.createElement("a");
-    a.href = picked[0].browser_download_url;
-    a.download = picked[0].name;
-    a.click();
-    return;
+  downloadBtn.disabled = true;
+  if (picked.length > 1) {
+    statusEl.className = "status";
+    statusEl.textContent = `Zipping ${picked.length} photos…`;
   }
 
-  downloadBtn.disabled = true;
-  statusEl.className = "status";
-  statusEl.textContent = `Zipping ${picked.length} photos…`;
-
   try {
-    const zip = new JSZip();
-    for (const asset of picked) {
-      const res = await fetch(asset.browser_download_url);
-      const blob = await res.blob();
-      zip.file(asset.name, blob);
-    }
-    const content = await zip.generateAsync({ type: "blob" });
-    const url = URL.createObjectURL(content);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${eventId}.zip`;
-    a.click();
-    URL.revokeObjectURL(url);
+    await zipAndDownloadAssets(picked, eventId);
     statusEl.textContent = "";
   } catch (err) {
     statusEl.textContent = `Couldn't build the zip: ${err.message}`;
@@ -174,6 +161,13 @@ downloadBtn.addEventListener("click", async () => {
   } finally {
     downloadBtn.disabled = selected.size === 0;
   }
+});
+
+document.getElementById("share-btn").addEventListener("click", async () => {
+  const shareBtn = document.getElementById("share-btn");
+  const ok = await copyToClipboard(location.href);
+  shareBtn.textContent = ok ? "Copied!" : "Couldn't copy";
+  setTimeout(() => (shareBtn.textContent = "Share link"), 1500);
 });
 
 loadEvent();
