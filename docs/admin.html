@@ -27,7 +27,7 @@ const emptyEl = document.getElementById("empty");
 const statusEl = document.getElementById("status");
 
 function base() {
-  return `${location.origin}${location.pathname.replace(/admin\.html$/, "")}`;
+  return `${location.origin}${location.pathname.replace(/admin(?:\.html)?$/, "")}`;
 }
 
 function shareUrl(id) {
