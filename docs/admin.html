@@ -44,7 +44,7 @@ function renderRow(event) {
   row.innerHTML = `
     <div class="info">
       <a href="${editUrl(event.id)}">${event.name}</a>
-      <span class="slug">${event.id} · ${event.visibility}${event.categories.length ? " · " + event.categories.join(", ") : ""}</span>
+      <span class="slug">${event.id} · ${event.visibility}${(event.categories || []).length ? " · " + event.categories.join(", ") : ""}</span>
     </div>
     <div class="actions">
       <button class="teal small" data-action="share">Share link</button>
