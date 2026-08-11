@@ -45,7 +45,6 @@ const downloadBtn = document.getElementById("download-btn");
 const selectAllBtn = document.getElementById("select-all-btn");
 
 let assets = [];
-let uploadUrlBase = null;
 const selected = new Set();
 
 function updateToolbar() {
@@ -91,7 +90,6 @@ async function loadEvent() {
     const release = await getEvent(eventId);
     titleEl.textContent = release.name;
     assets = release.assets;
-    uploadUrlBase = release.uploadUrlBase;
     renderSheet();
   } catch (err) {
     titleEl.textContent = "Event not found";
@@ -103,22 +101,27 @@ async function loadEvent() {
 document.getElementById("add-btn").addEventListener("click", async () => {
   const files = document.getElementById("add-files").files;
   const addStatus = document.getElementById("add-status");
-  if (!files.length || !uploadUrlBase) return;
+  if (!files.length) return;
 
-  let done = 0;
-  for (const file of files) {
-    addStatus.className = "status";
-    addStatus.textContent = `Uploading ${++done} of ${files.length}…`;
-    const result = await uploadPhoto(uploadUrlBase, file);
-    if (result.error) {
-      addStatus.textContent = `Failed on ${file.name}: ${result.error}`;
-      addStatus.className = "status error";
-      return;
+  try {
+    let done = 0;
+    for (const file of files) {
+      addStatus.className = "status";
+      addStatus.textContent = `Uploading ${++done} of ${files.length}…`;
+      const result = await uploadPhoto(eventId, file);
+      if (result.error) {
+        addStatus.textContent = `Failed on ${file.name}: ${result.error}`;
+        addStatus.className = "status error";
+        return;
+      }
     }
+    addStatus.textContent = "Uploaded. Refreshing…";
+    await loadEvent();
+    addStatus.textContent = "";
+  } catch (err) {
+    addStatus.textContent = `Something went wrong: ${err.message}`;
+    addStatus.className = "status error";
   }
-  addStatus.textContent = "Uploaded. Refreshing…";
-  await loadEvent();
-  addStatus.textContent = "";
 });
 
 selectAllBtn.addEventListener("click", () => {

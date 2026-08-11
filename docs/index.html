@@ -54,7 +54,7 @@ createBtn.addEventListener("click", async () => {
       let done = 0;
       for (const file of files) {
         statusEl.textContent = `Uploading photo ${++done} of ${files.length}…`;
-        const result = await uploadPhoto(event.uploadUrlBase, file);
+        const result = await uploadPhoto(event.id, file);
         if (result.error) throw new Error(result.error);
       }
     }
