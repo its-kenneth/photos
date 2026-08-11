@@ -8,11 +8,7 @@
 </head>
 <body>
 <div class="wrap">
-  <div class="nav-links">
-    <a class="back" href="index.html">&larr; new event</a>
-    <a class="back" href="events.html">all events</a>
-  </div>
-  <p class="frame-count" id="frame-count">Event Photos</p>
+  <p class="frame-count" id="frame-count">frame 000</p>
   <div class="title-row">
     <h1 id="event-title">Loading…</h1>
     <button class="teal small" id="share-btn">Share link</button>
@@ -29,8 +25,6 @@
     <div style="margin-top:12px;"><button id="add-btn">Upload</button></div>
     <p class="status" id="add-status"></p>
   </div>
-
-  <p class="hint" id="add-toggle" style="margin-bottom:20px;"></p>
 
   <div class="sheet" id="sheet"></div>
   <p class="empty" id="empty" style="display:none;">No photos here yet.</p>
@@ -49,12 +43,6 @@ function shareUrl() {
   const clean = new URL(location.href);
   clean.searchParams.delete("edit");
   return clean.toString();
-}
-
-function editUrl() {
-  const withEdit = new URL(location.href);
-  withEdit.searchParams.set("edit", "1");
-  return withEdit.toString();
 }
 
 const titleEl = document.getElementById("event-title");
@@ -85,6 +73,7 @@ function renderSheet() {
       <img src="${asset.browser_download_url}" loading="lazy" alt="Photo ${i + 1}">
       <span class="num">${String(i + 1).padStart(2, "0")}</span>
       <span class="check"></span>
+      ${isEditMode ? '<button type="button" class="frame-delete" title="Delete photo">&times;</button>' : ""}
     `;
     frame.addEventListener("click", () => {
       if (selected.has(asset.id)) {
@@ -96,6 +85,29 @@ function renderSheet() {
       }
       updateToolbar();
     });
+
+    if (isEditMode) {
+      const deleteBtn = frame.querySelector(".frame-delete");
+      deleteBtn.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        if (!confirm("Delete this photo? This can't be undone.")) return;
+        deleteBtn.disabled = true;
+        deleteBtn.textContent = "…";
+        try {
+          await deletePhoto(eventId, asset.name, asset.id);
+          selected.delete(asset.id);
+          assets = assets.filter((a) => a.id !== asset.id);
+          updateToolbar();
+          renderSheet();
+        } catch (err) {
+          statusEl.textContent = `Couldn't delete photo: ${err.message}`;
+          statusEl.className = "status error";
+          deleteBtn.disabled = false;
+          deleteBtn.innerHTML = "&times;";
+        }
+      });
+    }
+
     sheetEl.appendChild(frame);
   });
 }
@@ -108,14 +120,11 @@ async function loadEvent() {
   }
 
   document.getElementById("upload-card").style.display = isEditMode ? "block" : "none";
-  const toggleEl = document.getElementById("add-toggle");
-  toggleEl.innerHTML = isEditMode
-    ? ""
-    : `<a href="${editUrl()}">Add photos to this event</a>`;
 
   try {
     const release = await getEvent(eventId);
     titleEl.textContent = release.name;
+    document.title = release.name;
     assets = release.assets;
     renderSheet();
   } catch (err) {

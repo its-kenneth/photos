@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>New event</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+  <p class="frame-count">frame 001</p>
+  <h1>Start a new event</h1>
+
+  <div class="card">
+    <div class="field">
+      <label for="event-name">Event name</label>
+      <input type="text" id="event-name" placeholder="Class BBQ">
+    </div>
+    <div class="field">
+      <label for="event-slug">Custom link (optional)</label>
+      <input type="text" id="event-slug" placeholder="10aug-bbq">
+      <p class="hint" id="slug-preview">Leave blank for a random link.</p>
+    </div>
+    <div class="field">
+      <label for="event-categories">Categories (optional, comma-separated)</label>
+      <input type="text" id="event-categories" placeholder="bbq, class, summer">
+    </div>
+    <div class="field">
+      <label>Visibility</label>
+      <div class="visibility-toggle">
+        <button type="button" class="vis-option selected" id="vis-public" data-value="public">Public</button>
+        <button type="button" class="vis-option" id="vis-private" data-value="private">Private</button>
+      </div>
+      <p class="hint">Public events show up on the homepage. Private events are only reachable by direct link.</p>
+    </div>
+    <div class="field">
+      <label for="event-files">Photos (optional — you can add more later)</label>
+      <input type="file" id="event-files" multiple accept="image/*">
+    </div>
+    <button id="create-btn">Create event</button>
+    <p class="status" id="status"></p>
+    <div class="link-box" id="link-box" style="display:none;">
+      <span class="link-text" id="link-text"></span>
+      <button class="teal small" id="copy-btn">Copy link</button>
+    </div>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script src="github.js"></script>
+<script>
+const createBtn = document.getElementById("create-btn");
+const statusEl = document.getElementById("status");
+const linkBox = document.getElementById("link-box");
+const linkText = document.getElementById("link-text");
+const copyBtn = document.getElementById("copy-btn");
+const slugInput = document.getElementById("event-slug");
+const slugPreview = document.getElementById("slug-preview");
+const visButtons = document.querySelectorAll(".vis-option");
+let visibility = "public";
+
+visButtons.forEach((btn) => {
+  btn.addEventListener("click", () => {
+    visibility = btn.dataset.value;
+    visButtons.forEach((b) => b.classList.toggle("selected", b === btn));
+  });
+});
+
+function currentBase() {
+  return `${location.origin}${location.pathname.replace(/create\.html$/, "")}`;
+}
+
+slugInput.addEventListener("input", () => {
+  const raw = slugInput.value.trim();
+  slugPreview.textContent = raw
+    ? `Link: ${currentBase()}event.html?id=${raw.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")}`
+    : "Leave blank for a random link.";
+});
+
+let lastEventUrl = "";
+
+createBtn.addEventListener("click", async () => {
+  const name = document.getElementById("event-name").value.trim();
+  const customSlug = slugInput.value.trim();
+  const categories = document.getElementById("event-categories").value
+    .split(",")
+    .map((c) => c.trim())
+    .filter(Boolean);
+  const files = document.getElementById("event-files").files;
+
+  if (!name) {
+    statusEl.textContent = "Give the event a name first.";
+    statusEl.className = "status error";
+    return;
+  }
+
+  createBtn.disabled = true;
+  statusEl.className = "status";
+  statusEl.textContent = "Creating event…";
+
+  try {
+    const event = await createEvent(name, customSlug, categories, visibility);
+
+    if (files.length) {
+      let done = 0;
+      for (const file of files) {
+        statusEl.textContent = `Uploading photo ${++done} of ${files.length}…`;
+        const result = await uploadPhoto(event.id, file);
+        if (result.error) throw new Error(result.error);
+      }
+    }
+
+    lastEventUrl = `${currentBase()}event.html?id=${event.id}`;
+    statusEl.textContent = "Done.";
+    linkBox.style.display = "flex";
+    linkText.innerHTML = `<a href="${lastEventUrl}">${lastEventUrl}</a>`;
+  } catch (err) {
+    statusEl.textContent = `Something went wrong: ${err.message}`;
+    statusEl.className = "status error";
+  } finally {
+    createBtn.disabled = false;
+  }
+});
+
+copyBtn.addEventListener("click", async () => {
+  const ok = await copyToClipboard(lastEventUrl);
+  copyBtn.textContent = ok ? "Copied!" : "Couldn't copy";
+  setTimeout(() => (copyBtn.textContent = "Copy link"), 1500);
+});
+</script>
+</body>
+</html>
