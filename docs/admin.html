@@ -3,19 +3,18 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>All events</title>
+<title>Admin dashboard</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <div class="wrap">
-  <div class="nav-links">
-    <a class="back" href="index.html">&larr; new event</a>
+  <div class="title-row">
+    <h1>Admin dashboard</h1>
+    <a class="add-btn" href="create.html" title="Create new event">+</a>
   </div>
-  <p class="frame-count" id="frame-count">events</p>
-  <h1>All events</h1>
 
   <div class="event-rows" id="rows"></div>
-  <p class="empty" id="empty" style="display:none;">No events yet — create one to get started.</p>
+  <p class="empty" id="empty" style="display:none;">No events yet — tap + to create one.</p>
   <p class="status" id="status"></p>
 </div>
 
@@ -26,10 +25,17 @@
 const rowsEl = document.getElementById("rows");
 const emptyEl = document.getElementById("empty");
 const statusEl = document.getElementById("status");
-const frameCountEl = document.getElementById("frame-count");
 
-function eventUrl(id) {
-  return `${location.origin}${location.pathname.replace(/events\.html$/, "")}event.html?id=${id}`;
+function base() {
+  return `${location.origin}${location.pathname.replace(/admin\.html$/, "")}`;
+}
+
+function shareUrl(id) {
+  return `${base()}event.html?id=${id}`;
+}
+
+function editUrl(id) {
+  return `${base()}event.html?id=${id}&edit=1`;
 }
 
 function renderRow(event) {
@@ -37,8 +43,8 @@ function renderRow(event) {
   row.className = "event-row";
   row.innerHTML = `
     <div class="info">
-      <a href="event.html?id=${event.id}">${event.name}</a>
-      <span class="slug">${event.id}</span>
+      <a href="${editUrl(event.id)}">${event.name}</a>
+      <span class="slug">${event.id} · ${event.visibility}${event.categories.length ? " · " + event.categories.join(", ") : ""}</span>
     </div>
     <div class="actions">
       <button class="teal small" data-action="share">Share link</button>
@@ -48,7 +54,7 @@ function renderRow(event) {
   `;
 
   row.querySelector('[data-action="share"]').addEventListener("click", async (e) => {
-    const ok = await copyToClipboard(eventUrl(event.id));
+    const ok = await copyToClipboard(shareUrl(event.id));
     e.target.textContent = ok ? "Copied!" : "Couldn't copy";
     setTimeout(() => (e.target.textContent = "Share link"), 1500);
   });
@@ -101,7 +107,6 @@ async function loadEvents() {
   statusEl.textContent = "Loading events…";
   try {
     const events = await listEvents();
-    frameCountEl.textContent = `${events.length} event${events.length === 1 ? "" : "s"}`;
     statusEl.textContent = "";
     emptyEl.style.display = events.length ? "none" : "block";
     events.forEach((event) => rowsEl.appendChild(renderRow(event)));

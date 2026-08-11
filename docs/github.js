@@ -77,8 +77,9 @@ async function slugExists(slug) {
 
 // Creates an event. If customSlug is given, uses it as the id (after
 // slugifying) instead of generating a random one — throws if it's taken.
+// categories: array of strings. visibility: "public" | "private".
 // Returns { id, name }.
-async function createEvent(name, customSlug) {
+async function createEvent(name, customSlug, categories = [], visibility = "public") {
   let id;
   if (customSlug && customSlug.trim()) {
     id = slugify(customSlug);
@@ -90,7 +91,12 @@ async function createEvent(name, customSlug) {
     id = `${slugify(name)}-${makeEventId()}`;
   }
 
-  const meta = { name: name.trim(), createdAt: new Date().toISOString() };
+  const meta = {
+    name: name.trim(),
+    createdAt: new Date().toISOString(),
+    categories: categories.map((c) => c.trim()).filter(Boolean),
+    visibility: visibility === "private" ? "private" : "public",
+  };
   await putFile(
     `media/${id}/_meta.json`,
     utf8ToBase64(JSON.stringify(meta, null, 2)),
@@ -99,10 +105,12 @@ async function createEvent(name, customSlug) {
   return { id, name: name.trim() };
 }
 
-// Looks up an existing event. Returns { name, assets }.
+// Looks up an existing event. Returns { name, categories, visibility, assets }.
 // assets: [{ id, name, browser_download_url }]
 async function getEvent(eventId) {
   let name = eventId;
+  let categories = [];
+  let visibility = "public";
   const metaRes = await fetch(
     `${GITHUB_API}/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/media/${eventId}/_meta.json`,
     { headers: ghHeaders() }
@@ -110,9 +118,12 @@ async function getEvent(eventId) {
   if (metaRes.ok) {
     const metaFile = await metaRes.json();
     try {
-      name = JSON.parse(base64ToUtf8(metaFile.content)).name || eventId;
+      const meta = JSON.parse(base64ToUtf8(metaFile.content));
+      name = meta.name || eventId;
+      categories = meta.categories || [];
+      visibility = meta.visibility || "public";
     } catch (_) {
-      /* fall back to eventId */
+      /* fall back to defaults */
     }
   }
 
@@ -127,7 +138,7 @@ async function getEvent(eventId) {
     .filter((f) => f.name !== "_meta.json")
     .map((f) => ({ id: f.sha, name: f.name, browser_download_url: f.download_url }));
 
-  return { name, assets };
+  return { name, categories, visibility, assets };
 }
 
 // Uploads one file as a committed file under media/{eventId}/.
@@ -147,8 +158,9 @@ async function uploadPhoto(eventId, file) {
   }
 }
 
-// Lists every event (every folder under media/). Returns [{ id, name }],
-// sorted by name. Returns [] if no events exist yet.
+// Lists every event (every folder under media/).
+// Returns [{ id, name, categories, visibility }], sorted by name.
+// Returns [] if no events exist yet.
 async function listEvents() {
   const res = await fetch(
     `${GITHUB_API}/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/media`,
@@ -172,15 +184,33 @@ async function listEvents() {
           if (metaRes.ok) {
             const metaFile = await metaRes.json();
             const meta = JSON.parse(base64ToUtf8(metaFile.content));
-            return { id: dir.name, name: meta.name || dir.name };
+            return {
+              id: dir.name,
+              name: meta.name || dir.name,
+              categories: meta.categories || [],
+              visibility: meta.visibility || "public",
+            };
           }
         } catch (_) {
           /* fall back below */
         }
-        return { id: dir.name, name: dir.name };
+        return { id: dir.name, name: dir.name, categories: [], visibility: "public" };
       })
     )
   ).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+// Deletes a single photo from an event by filename (and its git blob sha).
+async function deletePhoto(eventId, filename, sha) {
+  const res = await fetch(
+    `${GITHUB_API}/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/media/${eventId}/${filename}`,
+    {
+      method: "DELETE",
+      headers: ghHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ message: `Delete photo: ${filename}`, sha }),
+    }
+  );
+  if (!res.ok) throw new Error(await res.text());
 }
 
 // Deletes an event: every file under media/{eventId}/, one commit each
