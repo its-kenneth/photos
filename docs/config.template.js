@@ -1,5 +1,4 @@
 // This file is a TEMPLATE, not the live config. GitHub Actions fills in
-// __GITHUB_TOKEN__ at deploy time and publishes the result as config.js —
 // the real token is never committed to git, so GitHub's secret scanning
 // has nothing to find and revoke.
 //
