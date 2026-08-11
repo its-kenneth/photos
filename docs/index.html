@@ -38,7 +38,7 @@ function renderRow(event) {
   row.className = "event-row";
   row.innerHTML = `
     <div class="info">
-      <a href="event.html?id=${event.id}">${event.name}</a>
+      <a href="event?id=${event.id}">${event.name}</a>
       ${(event.categories || []).length ? `<span class="slug">${event.categories.join(", ")}</span>` : ""}
     </div>
   `;

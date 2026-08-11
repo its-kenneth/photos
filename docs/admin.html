@@ -31,11 +31,11 @@ function base() {
 }
 
 function shareUrl(id) {
-  return `${base()}event.html?id=${id}`;
+  return `${base()}event?id=${id}`;
 }
 
 function editUrl(id) {
-  return `${base()}event.html?id=${id}&edit=1`;
+  return `${base()}event?id=${id}&edit=1`;
 }
 
 function renderRow(event) {

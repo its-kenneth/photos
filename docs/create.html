@@ -60,7 +60,7 @@ const visibilitySelect = document.getElementById("event-visibility");
 slugInput.addEventListener("input", () => {
   const raw = slugInput.value.trim();
   slugPreview.textContent = raw
-    ? `Link: ${siteBase()}event.html?id=${raw.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")}`
+    ? `Link: ${siteBase()}event?id=${raw.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")}`
     : "Leave blank for a random link.";
 });
 
@@ -97,7 +97,7 @@ createBtn.addEventListener("click", async () => {
       }
     }
 
-    lastEventUrl = `${siteBase()}event.html?id=${event.id}`;
+    lastEventUrl = `${siteBase()}event?id=${event.id}`;
     statusEl.textContent = "Done.";
     linkBox.style.display = "flex";
     linkText.innerHTML = `<a href="${lastEventUrl}">${lastEventUrl}</a>`;
