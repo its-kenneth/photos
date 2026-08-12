@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin dashboard</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+  <div class="title-row">
+    <h1>Admin dashboard</h1>
+    <a class="add-btn" href="create" title="Create new event">+</a>
+  </div>
+
+  <div class="event-rows" id="rows"></div>
+  <p class="empty" id="empty" style="display:none;">No events yet — tap + to create one.</p>
+  <p class="status" id="status"></p>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="config.js"></script>
+<script src="github.js"></script>
+<script>
+const rowsEl = document.getElementById("rows");
+const emptyEl = document.getElementById("empty");
+const statusEl = document.getElementById("status");
+
+function shareUrl(id) {
+  return `${siteBase()}event?id=${id}`;
+}
+
+function editUrl(id) {
+  return `${siteBase()}event?id=${id}&edit=1`;
+}
+
+function renderRow(event) {
+  const row = document.createElement("div");
+  row.className = "event-row";
+  row.innerHTML = `
+    <div class="info">
+      <span class="event-name">${event.name}</span>
+      <span class="slug">${event.id} · ${event.visibility}${(event.categories || []).length ? " · " + event.categories.join(", ") : ""}</span>
+    </div>
+    <div class="actions">
+      <button class="teal small" data-action="edit">Edit</button>
+      <button class="teal small" data-action="share">Share link</button>
+      <button class="secondary small" data-action="download">Download all</button>
+      <button class="danger small" data-action="delete">Delete event</button>
+    </div>
+  `;
+
+  row.querySelector('[data-action="edit"]').addEventListener("click", () => {
+    location.href = editUrl(event.id);
+  });
+
+  row.querySelector('[data-action="share"]').addEventListener("click", async (e) => {
+    const ok = await copyToClipboard(shareUrl(event.id));
+    e.target.textContent = ok ? "Copied!" : "Couldn't copy";
+    setTimeout(() => (e.target.textContent = "Share link"), 1500);
+  });
+
+  row.querySelector('[data-action="download"]').addEventListener("click", async (e) => {
+    const btn = e.target;
+    btn.disabled = true;
+    btn.textContent = "Loading…";
+    try {
+      const full = await getEvent(event.id);
+      if (!full.assets.length) {
+        btn.textContent = "No photos";
+        setTimeout(() => (btn.textContent = "Download all"), 1500);
+        return;
+      }
+      btn.textContent = full.assets.length > 1 ? "Zipping…" : "Downloading…";
+      await zipAndDownloadAssets(full.assets, event.id);
+      btn.textContent = "Download all";
+    } catch (err) {
+      btn.textContent = "Failed";
+      statusEl.textContent = err.message;
+      statusEl.className = "status error";
+      setTimeout(() => (btn.textContent = "Download all"), 1500);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  row.querySelector('[data-action="delete"]').addEventListener("click", async (e) => {
+    if (!confirm(`Delete "${event.name}" and all its photos? This can't be undone.`)) return;
+    const btn = e.target;
+    btn.disabled = true;
+    btn.textContent = "Deleting…";
+    try {
+      await deleteEvent(event.id);
+      row.remove();
+      if (!rowsEl.children.length) emptyEl.style.display = "block";
+    } catch (err) {
+      btn.textContent = "Failed";
+      btn.disabled = false;
+      statusEl.textContent = err.message;
+      statusEl.className = "status error";
+    }
+  });
+
+  return row;
+}
+
+async function loadEvents() {
+  statusEl.textContent = "Loading events…";
+  try {
+    const events = await listEvents();
+    statusEl.textContent = "";
+    emptyEl.style.display = events.length ? "none" : "block";
+    events.forEach((event) => rowsEl.appendChild(renderRow(event)));
+  } catch (err) {
+    statusEl.textContent = `Couldn't load events: ${err.message}`;
+    statusEl.className = "status error";
+  }
+}
+
+loadEvents();
+</script>
+</body>
+</html>
