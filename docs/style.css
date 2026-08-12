@@ -151,7 +151,8 @@ label {
 }
 
 input[type="text"],
-input[type="file"] {
+input[type="file"],
+select {
   width: 100%;
   background: var(--bg);
   border: 2px solid var(--border);
@@ -162,8 +163,19 @@ input[type="file"] {
   padding: 11px 12px;
 }
 
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='9' viewBox='0 0 14 9'%3E%3Cpath d='M1 1l6 6 6-6' fill='none' stroke='%238c7a63' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  padding-right: 36px;
+  cursor: pointer;
+}
+
 input[type="text"]:focus,
 input[type="file"]:focus,
+select:focus,
 button:focus-visible {
   outline: 2px solid var(--accent2);
   outline-offset: 2px;
@@ -335,6 +347,67 @@ button.small {
 
 .frame-delete:hover:not(:disabled) { filter: brightness(1.1); }
 
+.frame-expand {
+  position: absolute;
+  bottom: 6px;
+  left: 6px;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border-radius: 50%;
+  background: var(--accent2);
+  color: var(--accent2-text);
+  border: none;
+  font-size: 12px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.frame-expand:hover { filter: brightness(1.1); }
+
+.lightbox {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 15, 10, 0.92);
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 40px;
+}
+
+.lightbox.open {
+  display: flex;
+}
+
+.lightbox img {
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: 6px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.lightbox-close {
+  position: absolute;
+  top: 20px;
+  right: 24px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--text);
+  border: none;
+  font-size: 22px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lightbox-close:hover { filter: brightness(1.06); }
+
 .empty {
   font-family: var(--mono);
   font-size: 13px;
@@ -376,7 +449,8 @@ button.small {
 
 .event-row .info { min-width: 180px; }
 
-.event-row .info a {
+.event-row .info a,
+.event-row .info .event-name {
   color: var(--text);
   font-weight: 700;
   font-size: 16px;
