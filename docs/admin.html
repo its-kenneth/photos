@@ -113,7 +113,7 @@ async function loadEvents() {
     events.forEach((event) => rowsEl.appendChild(renderRow(event)));
   } catch (err) {
     statusEl.textContent = `Couldn't load events: ${err.message}`;
-    statusEl.className = "status error ";
+    statusEl.className = "status error";
   }
 }
 
